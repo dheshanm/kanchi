@@ -32,7 +32,7 @@ def create_router(app_state) -> APIRouter:
             yield session
 
     @router.post("", response_model=ActionConfigDefinition, status_code=201)
-    async def create_action_config(
+    def create_action_config(
         config_data: ActionConfigCreateRequest,
         session: Session = Depends(get_db)
     ):
@@ -42,7 +42,7 @@ def create_router(app_state) -> APIRouter:
         return config
 
     @router.get("", response_model=List[ActionConfigDefinition])
-    async def list_action_configs(
+    def list_action_configs(
         action_type: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
@@ -58,7 +58,7 @@ def create_router(app_state) -> APIRouter:
         return configs
 
     @router.get("/{config_id}", response_model=ActionConfigDefinition)
-    async def get_action_config(
+    def get_action_config(
         config_id: str,
         session: Session = Depends(get_db)
     ):
@@ -72,7 +72,7 @@ def create_router(app_state) -> APIRouter:
         return config
 
     @router.put("/{config_id}", response_model=ActionConfigDefinition)
-    async def update_action_config(
+    def update_action_config(
         config_id: str,
         updates: ActionConfigUpdateRequest,
         session: Session = Depends(get_db)
@@ -87,7 +87,7 @@ def create_router(app_state) -> APIRouter:
         return config
 
     @router.delete("/{config_id}", status_code=204)
-    async def delete_action_config(
+    def delete_action_config(
         config_id: str,
         session: Session = Depends(get_db)
     ):

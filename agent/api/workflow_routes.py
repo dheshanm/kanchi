@@ -45,7 +45,7 @@ def create_router(app_state) -> APIRouter:
     # ==================== Workflow CRUD ====================
 
     @router.post("", response_model=WorkflowDefinition, status_code=201)
-    async def create_workflow(
+    def create_workflow(
         workflow_data: WorkflowCreateRequest,
         session: Session = Depends(get_db)
     ):
@@ -58,7 +58,7 @@ def create_router(app_state) -> APIRouter:
         return workflow
 
     @router.get("", response_model=List[WorkflowDefinition])
-    async def list_workflows(
+    def list_workflows(
         enabled_only: bool = False,
         trigger_type: Optional[str] = None,
         limit: int = 100,
@@ -76,7 +76,7 @@ def create_router(app_state) -> APIRouter:
         return workflows
 
     @router.get("/{workflow_id}", response_model=WorkflowDefinition)
-    async def get_workflow(
+    def get_workflow(
         workflow_id: str,
         session: Session = Depends(get_db)
     ):
@@ -90,7 +90,7 @@ def create_router(app_state) -> APIRouter:
         return workflow
 
     @router.put("/{workflow_id}", response_model=WorkflowDefinition)
-    async def update_workflow(
+    def update_workflow(
         workflow_id: str,
         updates: WorkflowUpdateRequest,
         session: Session = Depends(get_db)
@@ -108,7 +108,7 @@ def create_router(app_state) -> APIRouter:
         return workflow
 
     @router.delete("/{workflow_id}", status_code=204)
-    async def delete_workflow(
+    def delete_workflow(
         workflow_id: str,
         session: Session = Depends(get_db)
     ):
@@ -122,7 +122,7 @@ def create_router(app_state) -> APIRouter:
     # ==================== Workflow Executions ====================
 
     @router.get("/{workflow_id}/executions", response_model=List[WorkflowExecutionRecord])
-    async def get_workflow_executions(
+    def get_workflow_executions(
         workflow_id: str,
         limit: int = 100,
         offset: int = 0,
@@ -145,7 +145,7 @@ def create_router(app_state) -> APIRouter:
         return executions
 
     @router.get("/executions/recent", response_model=List[WorkflowExecutionRecord])
-    async def get_recent_executions(
+    def get_recent_executions(
         status: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
@@ -163,7 +163,7 @@ def create_router(app_state) -> APIRouter:
     # ==================== Workflow Testing ====================
 
     @router.post("/{workflow_id}/test")
-    async def test_workflow(
+    def test_workflow(
         workflow_id: str,
         test_context: dict,
         session: Session = Depends(get_db)

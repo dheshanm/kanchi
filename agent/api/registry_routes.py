@@ -36,7 +36,7 @@ def create_router(app_state) -> APIRouter:
         with app_state.db_manager.get_session() as session:
             yield session
 
-    async def get_active_env(
+    def get_active_env(
         session: Session = Depends(get_db),
         x_session_id: Optional[str] = Header(None),
         current_user: Optional[AuthenticatedUser] = Depends(optional_user_dep)
@@ -59,7 +59,7 @@ def create_router(app_state) -> APIRouter:
         return env_service.get_environment(env_id)
 
     @router.get("/tasks", response_model=List[TaskRegistryResponse])
-    async def list_tasks(
+    def list_tasks(
         tag: Optional[str] = None,
         name: Optional[str] = None,
         session: Session = Depends(get_db),
@@ -76,7 +76,7 @@ def create_router(app_state) -> APIRouter:
         return registry_service.list_tasks(tag=tag, name_filter=name)
 
     @router.get("/tasks/{task_name}", response_model=TaskRegistryResponse)
-    async def get_task(
+    def get_task(
         task_name: str,
         session: Session = Depends(get_db),
         active_env = Depends(get_active_env)
@@ -96,7 +96,7 @@ def create_router(app_state) -> APIRouter:
         return task
 
     @router.put("/tasks/{task_name}", response_model=TaskRegistryResponse)
-    async def update_task(
+    def update_task(
         task_name: str,
         update_data: TaskRegistryUpdate,
         session: Session = Depends(get_db),
@@ -118,7 +118,7 @@ def create_router(app_state) -> APIRouter:
         return updated_task
 
     @router.get("/tasks/{task_name}/stats", response_model=TaskRegistryStats)
-    async def get_task_stats(
+    def get_task_stats(
         task_name: str,
         hours: int = 24,
         session: Session = Depends(get_db),
@@ -141,7 +141,7 @@ def create_router(app_state) -> APIRouter:
         return registry_service.get_task_stats(task_name, hours=hours)
 
     @router.get("/tasks/{task_name}/timeline", response_model=TaskTimelineResponse)
-    async def get_task_timeline(
+    def get_task_timeline(
         task_name: str,
         hours: int = Query(24, description="Number of hours to look back"),
         bucket_size_minutes: int = Query(60, description="Bucket size in minutes (e.g., 60 for 1-hour buckets)"),
@@ -170,7 +170,7 @@ def create_router(app_state) -> APIRouter:
         )
 
     @router.get("/tags", response_model=List[str])
-    async def get_all_tags(
+    def get_all_tags(
         session: Session = Depends(get_db),
         active_env = Depends(get_active_env)
     ):
@@ -179,7 +179,7 @@ def create_router(app_state) -> APIRouter:
         return registry_service.get_all_tags()
 
     @router.get("/tasks/{task_name}/daily-stats", response_model=List[TaskDailyStatsResponse])
-    async def get_task_daily_stats(
+    def get_task_daily_stats(
         task_name: str,
         start_date: Optional[date] = Query(None, description="Start date (YYYY-MM-DD)"),
         end_date: Optional[date] = Query(None, description="End date (YYYY-MM-DD)"),
@@ -216,7 +216,7 @@ def create_router(app_state) -> APIRouter:
         )
 
     @router.get("/tasks/{task_name}/trend", response_model=dict)
-    async def get_task_trend(
+    def get_task_trend(
         task_name: str,
         days: int = Query(7, description="Number of days to analyze"),
         session: Session = Depends(get_db),
@@ -237,7 +237,7 @@ def create_router(app_state) -> APIRouter:
         return daily_stats_service.get_task_trend_summary(task_name, days=days)
 
     @router.get("/daily-stats/{target_date}", response_model=List[TaskDailyStatsResponse])
-    async def get_all_tasks_stats_for_date(
+    def get_all_tasks_stats_for_date(
         target_date: date,
         session: Session = Depends(get_db)
     ):

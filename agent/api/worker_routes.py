@@ -82,7 +82,7 @@ def create_router(app_state) -> APIRouter:
 
 
     @router.get("/workers/events/recent")
-    async def get_recent_worker_events(limit: int = 50, session: Session = Depends(get_db)):
+    def get_recent_worker_events(limit: int = 50, session: Session = Depends(get_db)):
         """Get recent worker events."""
         worker_service = WorkerService(session)
         return worker_service.get_recent_worker_events(limit)

@@ -41,7 +41,7 @@ def create_router(app_state) -> APIRouter:
         with app_state.db_manager.get_session() as session:
             yield session
 
-    async def get_active_env(
+    def get_active_env(
         session: Session = Depends(get_db),
         x_session_id: Optional[str] = Header(None),
         current_user: Optional[AuthenticatedUser] = Depends(optional_user_dep)
@@ -65,7 +65,7 @@ def create_router(app_state) -> APIRouter:
 
 
     @router.get("/events/recent", response_model=Dict[str, Any])
-    async def get_recent_events(
+    def get_recent_events(
         limit: int = 100,
         page: int = 0,
         aggregate: bool = True,
@@ -104,7 +104,7 @@ def create_router(app_state) -> APIRouter:
 
 
     @router.get("/events/{task_id}", response_model=List[TaskEvent])
-    async def get_task_events(task_id: str, session: Session = Depends(get_db)):
+    def get_task_events(task_id: str, session: Session = Depends(get_db)):
         """Get all events for a specific task."""
         task_service = TaskService(session)
         task_events = task_service.get_task_events(task_id)
@@ -115,7 +115,7 @@ def create_router(app_state) -> APIRouter:
         return task_events
 
     @router.get("/tasks/{task_id}/progress", response_model=TaskProgressSnapshot)
-    async def get_task_progress(task_id: str, session: Session = Depends(get_db)):
+    def get_task_progress(task_id: str, session: Session = Depends(get_db)):
         """Get latest progress, steps, and recent history for a task."""
         progress_service = ProgressService(session)
         latest = progress_service.get_latest_progress(task_id)
@@ -131,7 +131,7 @@ def create_router(app_state) -> APIRouter:
 
 
     @router.get("/tasks/active", response_model=List[TaskEvent])
-    async def get_active_tasks(
+    def get_active_tasks(
         session: Session = Depends(get_db),
         active_env = Depends(get_active_env)
     ):
@@ -142,7 +142,7 @@ def create_router(app_state) -> APIRouter:
 
 
     @router.get("/tasks/orphaned", response_model=List[TaskEvent])
-    async def get_orphaned_tasks(
+    def get_orphaned_tasks(
         session: Session = Depends(get_db),
         active_env = Depends(get_active_env)
     ):
@@ -151,7 +151,7 @@ def create_router(app_state) -> APIRouter:
         return task_service.get_unretried_orphaned_tasks()
 
     @router.get("/tasks/failed/recent", response_model=List[TaskEvent])
-    async def get_recent_failed_tasks(
+    def get_recent_failed_tasks(
         hours: Optional[int] = Query(
             default=None,
             ge=1,
@@ -176,7 +176,7 @@ def create_router(app_state) -> APIRouter:
 
 
     @router.post("/tasks/{task_id}/resolve")
-    async def resolve_task(
+    def resolve_task(
         task_id: str,
         payload: Optional[ResolveTaskRequest] = None,
         session: Session = Depends(get_db),
@@ -202,7 +202,7 @@ def create_router(app_state) -> APIRouter:
 
 
     @router.delete("/tasks/{task_id}/resolve")
-    async def clear_task_resolution(
+    def clear_task_resolution(
         task_id: str,
         session: Session = Depends(get_db),
     ):
@@ -222,7 +222,7 @@ def create_router(app_state) -> APIRouter:
 
 
     @router.post("/tasks/{task_id}/retry")
-    async def retry_task(task_id: str, session: Session = Depends(get_db)):
+    def retry_task(task_id: str, session: Session = Depends(get_db)):
         """Retry a failed task by creating a new task with the same parameters."""
         if not app_state.monitor_instance:
             raise HTTPException(status_code=500, detail="Monitor not initialized")

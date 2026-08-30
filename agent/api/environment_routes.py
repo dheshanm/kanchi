@@ -32,7 +32,7 @@ def create_router(app_state) -> APIRouter:
             yield session
 
     @router.post("", response_model=EnvironmentResponse, status_code=201)
-    async def create_environment(
+    def create_environment(
         env_create: EnvironmentCreate,
         session: Session = Depends(get_db)
     ):
@@ -45,7 +45,7 @@ def create_router(app_state) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.get("", response_model=List[EnvironmentResponse])
-    async def list_environments(session: Session = Depends(get_db)):
+    def list_environments(session: Session = Depends(get_db)):
         """List all environments."""
         try:
             service = EnvironmentService(session)
@@ -55,7 +55,7 @@ def create_router(app_state) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.get("/{env_id}", response_model=EnvironmentResponse)
-    async def get_environment(env_id: str, session: Session = Depends(get_db)):
+    def get_environment(env_id: str, session: Session = Depends(get_db)):
         """Get environment by ID."""
         try:
             service = EnvironmentService(session)
@@ -70,7 +70,7 @@ def create_router(app_state) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.patch("/{env_id}", response_model=EnvironmentResponse)
-    async def update_environment(
+    def update_environment(
         env_id: str,
         env_update: EnvironmentUpdate,
         session: Session = Depends(get_db)
@@ -89,7 +89,7 @@ def create_router(app_state) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.delete("/{env_id}", status_code=204)
-    async def delete_environment(env_id: str, session: Session = Depends(get_db)):
+    def delete_environment(env_id: str, session: Session = Depends(get_db)):
         """Delete an environment."""
         try:
             service = EnvironmentService(session)

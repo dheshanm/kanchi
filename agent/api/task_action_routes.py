@@ -43,7 +43,7 @@ def create_router(app_state) -> APIRouter:
         with app_state.db_manager.get_session() as session:
             yield session
 
-    async def get_active_env(
+    def get_active_env(
         session: Session = Depends(get_db),
         x_session_id: Optional[str] = Header(None),
         current_user: Optional[AuthenticatedUser] = Depends(optional_user_dep),
@@ -82,7 +82,7 @@ def create_router(app_state) -> APIRouter:
         response_model=RerunPreflightResponse,
         include_in_schema=False,
     )
-    async def preflight_rerun_review(
+    def preflight_rerun_review(
         payload: RerunPreflightRequest,
         session: Session = Depends(get_db),
         active_env=Depends(get_active_env),
@@ -98,7 +98,7 @@ def create_router(app_state) -> APIRouter:
         response_model=RerunPreflightResponse,
         include_in_schema=False,
     )
-    async def preflight_task_action(
+    def preflight_task_action(
         payload: RerunPreflightRequest,
         session: Session = Depends(get_db),
         active_env=Depends(get_active_env),
@@ -114,7 +114,7 @@ def create_router(app_state) -> APIRouter:
         response_model=TaskActionDetail,
         include_in_schema=False,
     )
-    async def submit_rerun_review(
+    def submit_rerun_review(
         payload: RerunSubmitRequest,
         session: Session = Depends(get_db),
         x_session_id: Optional[str] = Header(None),
@@ -136,7 +136,7 @@ def create_router(app_state) -> APIRouter:
         response_model=TaskActionDetail,
         include_in_schema=False,
     )
-    async def create_task_action(
+    def create_task_action(
         payload: TaskActionCreateRequest,
         session: Session = Depends(get_db),
         x_session_id: Optional[str] = Header(None),
@@ -159,7 +159,7 @@ def create_router(app_state) -> APIRouter:
         response_model=TaskActionListResponse,
         include_in_schema=False,
     )
-    async def list_task_actions(
+    def list_task_actions(
         limit: int = Query(default=20, ge=1, le=100),
         session: Session = Depends(get_db),
         active_env=Depends(get_active_env),
@@ -183,7 +183,7 @@ def create_router(app_state) -> APIRouter:
         response_model=TaskActionDetail,
         include_in_schema=False,
     )
-    async def get_task_action(
+    def get_task_action(
         action_id: str,
         session: Session = Depends(get_db),
         active_env=Depends(get_active_env),
@@ -199,7 +199,7 @@ def create_router(app_state) -> APIRouter:
         response_model=RerunPreflightResponse,
         include_in_schema=False,
     )
-    async def preflight_single_rerun(
+    def preflight_single_rerun(
         task_id: str,
         session: Session = Depends(get_db),
         active_env=Depends(get_active_env),
@@ -212,7 +212,7 @@ def create_router(app_state) -> APIRouter:
         response_model=TaskActionDetail,
         include_in_schema=False,
     )
-    async def rerun_single_task(
+    def rerun_single_task(
         task_id: str,
         session: Session = Depends(get_db),
         x_session_id: Optional[str] = Header(None),

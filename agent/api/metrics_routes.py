@@ -9,7 +9,7 @@ def create_router(app_state) -> APIRouter:  # noqa: ARG001 - signature kept for 
     router = APIRouter()
 
     @router.get("/metrics")
-    async def metrics():
+    def metrics():
         return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     return router

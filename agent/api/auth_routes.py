@@ -81,7 +81,7 @@ def create_router(app_state) -> APIRouter:
         )
 
     @router.post("/basic/login", response_model=LoginResponse)
-    async def basic_login(
+    def basic_login(
         payload: BasicLoginRequest,
         auth_service: AuthService = Depends(require_auth_service),
         config: Config = Depends(get_config),
@@ -102,7 +102,7 @@ def create_router(app_state) -> APIRouter:
         return _login_result_to_response(result)
 
     @router.post("/refresh", response_model=LoginResponse)
-    async def refresh_tokens(
+    def refresh_tokens(
         payload: RefreshRequest,
         auth_service: AuthService = Depends(require_auth_service),
     ):
@@ -114,7 +114,7 @@ def create_router(app_state) -> APIRouter:
         return _login_result_to_response(result)
 
     @router.post("/logout", status_code=204)
-    async def logout(
+    def logout(
         payload: LogoutRequest,
         auth_service: AuthService = Depends(require_auth_service),
         current_user: AuthenticatedUser | None = Depends(optional_authenticated_user),
@@ -127,7 +127,7 @@ def create_router(app_state) -> APIRouter:
         return Response(status_code=204)
 
     @router.get("/me", response_model=UserInfo)
-    async def get_current_user(
+    def get_current_user(
         db_session=Depends(get_db),
         current_user: AuthenticatedUser = Depends(require_authenticated_user),
     ):

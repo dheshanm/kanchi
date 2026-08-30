@@ -38,19 +38,19 @@ def create_router(app_state) -> APIRouter:
         return RetentionService(session)
 
     @router.get("", response_model=AppConfigSnapshot)
-    async def get_config_snapshot(
+    def get_config_snapshot(
         config_service: AppConfigService = Depends(get_config_service)
     ):
         """Get grouped application configuration with defaults applied."""
         return config_service.get_config_snapshot()
 
     @router.get("/settings", response_model=List[AppSetting])
-    async def list_settings(config_service: AppConfigService = Depends(get_config_service)):
+    def list_settings(config_service: AppConfigService = Depends(get_config_service)):
         """List all application settings."""
         return config_service.list_settings()
 
     @router.get("/settings/{key}", response_model=AppSetting)
-    async def get_setting(
+    def get_setting(
         key: str,
         config_service: AppConfigService = Depends(get_config_service)
     ):
@@ -61,7 +61,7 @@ def create_router(app_state) -> APIRouter:
         return setting
 
     @router.put("/settings/{key}", response_model=AppSetting)
-    async def upsert_setting(
+    def upsert_setting(
         key: str,
         payload: AppSettingUpdate,
         config_service: AppConfigService = Depends(get_config_service)
@@ -76,7 +76,7 @@ def create_router(app_state) -> APIRouter:
             raise HTTPException(status_code=500, detail="Failed to update setting") from exc
 
     @router.delete("/settings/{key}", status_code=204)
-    async def delete_setting(
+    def delete_setting(
         key: str,
         config_service: AppConfigService = Depends(get_config_service)
     ):
@@ -87,14 +87,14 @@ def create_router(app_state) -> APIRouter:
         return None
 
     @router.get("/retention", response_model=DataRetentionConfig)
-    async def get_retention_policy(
+    def get_retention_policy(
         retention_service: RetentionService = Depends(get_retention_service)
     ):
         """Get normalized data retention policy values."""
         return retention_service.get_policy()
 
     @router.post("/retention/cleanup", response_model=RetentionCleanupResponse)
-    async def run_retention_cleanup(
+    def run_retention_cleanup(
         dry_run: bool = Query(default=True),
         retention_service: RetentionService = Depends(get_retention_service)
     ):

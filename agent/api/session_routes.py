@@ -35,7 +35,7 @@ def create_router(app_state) -> APIRouter:
         return x_session_id
 
     @router.post("/init", response_model=UserSessionResponse, status_code=200)
-    async def initialize_session(
+    def initialize_session(
         session_id: str = Depends(get_session_id),
         db_session: Session = Depends(get_db),
         current_user: Optional[AuthenticatedUser] = Depends(optional_user_dep)
@@ -64,7 +64,7 @@ def create_router(app_state) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.get("/me", response_model=UserSessionResponse)
-    async def get_current_session(
+    def get_current_session(
         session_id: str = Depends(get_session_id),
         db_session: Session = Depends(get_db),
         current_user: Optional[AuthenticatedUser] = Depends(optional_user_dep)
@@ -95,7 +95,7 @@ def create_router(app_state) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.patch("/me", response_model=UserSessionResponse)
-    async def update_current_session(
+    def update_current_session(
         session_update: UserSessionUpdate,
         session_id: str = Depends(get_session_id),
         db_session: Session = Depends(get_db),
@@ -127,7 +127,7 @@ def create_router(app_state) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.post("/me/environment/{environment_id}", response_model=UserSessionResponse)
-    async def set_session_environment(
+    def set_session_environment(
         environment_id: str,
         session_id: str = Depends(get_session_id),
         db_session: Session = Depends(get_db),
@@ -159,7 +159,7 @@ def create_router(app_state) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.delete("/me/environment", response_model=UserSessionResponse)
-    async def clear_session_environment(
+    def clear_session_environment(
         session_id: str = Depends(get_session_id),
         db_session: Session = Depends(get_db),
         current_user: Optional[AuthenticatedUser] = Depends(optional_user_dep)
