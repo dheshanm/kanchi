@@ -13,6 +13,7 @@ from .app_config_service import AppConfigService
 from .retention_service import RetentionService
 from .retention_scheduler_service import RetentionSchedulerService
 from .task_action_service import TaskActionService
+from .airflow_enrichment_service import AirflowEnrichmentService
 
 __all__ = [
     'TaskService',
@@ -27,5 +28,6 @@ __all__ = [
     'AppConfigService',
     'RetentionService',
     'RetentionSchedulerService',
-    'TaskActionService'
+    'TaskActionService',
+    'AirflowEnrichmentService'
 ]

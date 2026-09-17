@@ -6,6 +6,7 @@ from database import DatabaseManager
 from models import TaskEvent, WorkerEvent
 from constants import EventType
 from services import (
+    AirflowEnrichmentService,
     OrphanDetectionService,
     TaskService,
     WorkerService,
@@ -36,6 +37,11 @@ class EventHandler:
                 )
 
             with self.db_manager.get_session() as session:
+                # Rewrite Airflow's single `execute_workload` name into
+                # `<dag_id>.<task_id>` first, so the registry, daily statistics
+                # and the stored event all agree on one identity.
+                AirflowEnrichmentService(session).enrich(task_event)
+
                 registry_service = TaskRegistryService(session)
                 registry_service.ensure_task_registered(task_event.task_name)
 
