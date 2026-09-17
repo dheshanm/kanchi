@@ -44,6 +44,10 @@ export interface AuthConfigDTO {
   basic_enabled: boolean
   oauth_providers: string[]
   allowed_email_patterns: string[]
+  /** Trusted-header (SSO gateway) mode: sign in via POST /api/auth/header/login. */
+  header_enabled?: boolean
+  /** Where to send the browser after sign-out so the gateway session ends too. */
+  header_logout_url?: string | null
 }
 
 export interface LoginResponseDTO {
@@ -356,6 +360,15 @@ class ApiService {
     const response = await this.api.instance.post<LoginResponseDTO>('/api/auth/basic/login', {
       username,
       password,
+      session_id: sessionId,
+    })
+    return response.data
+  }
+
+  async loginWithTrustedHeader(sessionId?: string): Promise<LoginResponseDTO> {
+    // The identity travels in headers the SSO gateway adds; the body only
+    // carries the session to attach the login to.
+    const response = await this.api.instance.post<LoginResponseDTO>('/api/auth/header/login', {
       session_id: sessionId,
     })
     return response.data

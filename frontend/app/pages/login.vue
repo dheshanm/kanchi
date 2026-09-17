@@ -47,6 +47,24 @@
             </CardDescription>
           </CardHeader>
           <CardContent class="space-y-5">
+            <div v-if="authEnabled && headerEnabled" class="space-y-3">
+              <p class="text-sm text-text-secondary">
+                <template v-if="headerSubmitting">Signing you in with single sign-on…</template>
+                <template v-else-if="error">Single sign-on did not complete. You can retry below.</template>
+                <template v-else>Your organisation's single sign-on will sign you in automatically.</template>
+              </p>
+              <Button
+                type="button"
+                variant="primary"
+                class="flex h-11 w-full items-center justify-center rounded-md text-sm font-medium transition-all duration-200 shadow-none hover:shadow-glow-sm"
+                :disabled="headerSubmitting"
+                @click="signInWithHeader"
+              >
+                <Loader2 v-if="headerSubmitting" class="mr-2 h-4 w-4 animate-spin" />
+                {{ headerSubmitting ? 'Signing in…' : 'Continue with single sign-on' }}
+              </Button>
+            </div>
+
             <form
               v-if="authEnabled && config?.basic_enabled"
               class="space-y-4"
@@ -180,11 +198,12 @@ const sessionStore = useSessionStore()
 const apiService = useApiService()
 const { apiUrl, frontendUrl } = useBackendUrls()
 
-const { authEnabled, oauthProviders, isAuthenticated, config } = storeToRefs(authStore)
+const { authEnabled, oauthProviders, headerEnabled, isAuthenticated, config } = storeToRefs(authStore)
 
 const username = ref('')
 const password = ref('')
 const submitting = ref(false)
+const headerSubmitting = ref(false)
 const error = ref<string | null>(null)
 const oauthInProgress = ref<AuthProvider | null>(null)
 
@@ -273,7 +292,27 @@ onMounted(async () => {
   if (authEnabled.value) {
     await sessionStore.ensureInitialized({ persist: false })
   }
+
+  // Behind an SSO gateway the browser is already authenticated; finish the
+  // login without waiting for a click.
+  if (headerEnabled.value && !isAuthenticated.value) {
+    await signInWithHeader()
+  }
 })
+
+async function signInWithHeader() {
+  headerSubmitting.value = true
+  error.value = null
+
+  try {
+    await authStore.loginWithTrustedHeader()
+    router.push('/')
+  } catch (err: any) {
+    error.value = err?.message || 'Single sign-on failed'
+  } finally {
+    headerSubmitting.value = false
+  }
+}
 
 onBeforeUnmount(() => {
   window.removeEventListener('message', handleOAuthMessage)

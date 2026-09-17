@@ -835,6 +835,11 @@ class AuthConfigResponse(BaseModel):
     basic_enabled: bool
     oauth_providers: List[str] = Field(default_factory=list)
     allowed_email_patterns: List[str] = Field(default_factory=list)
+    # Trusted-header (SSO gateway) mode: the UI can sign in without a form by
+    # calling POST /api/auth/header/login, and sends the browser to
+    # ``header_logout_url`` after signing out so the gateway session ends too.
+    header_enabled: bool = False
+    header_logout_url: Optional[str] = None
 
 
 class LoginResponse(BaseModel):
@@ -848,6 +853,11 @@ class BasicLoginRequest(BaseModel):
     """Basic authentication request payload."""
     username: str
     password: str
+    session_id: Optional[str] = None
+
+
+class HeaderLoginRequest(BaseModel):
+    """Trusted-header login payload; the identity itself travels in headers."""
     session_id: Optional[str] = None
 
 

@@ -24,6 +24,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   const authEnabled = computed(() => !!config.value?.auth_enabled)
   const oauthProviders = computed(() => config.value?.oauth_providers ?? [])
+  const headerEnabled = computed(() => authEnabled.value && !!config.value?.header_enabled)
+  const headerLogoutUrl = computed(() => (headerEnabled.value ? config.value?.header_logout_url ?? null : null))
   const isAuthenticated = computed(() => !!user.value)
   const needsLogin = computed(() => authEnabled.value && !isAuthenticated.value)
 
@@ -140,6 +142,7 @@ export const useAuthStore = defineStore('auth', () => {
           clearAuthState({ persist: true })
           await sessionStore.ensureInitialized({ persist: true })
           sessionId.value = sessionStore.sessionId as string | null
+          await tryTrustedHeaderLogin()
         }
       } else {
         clearAuthState({ persist: true })
@@ -148,6 +151,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
         await sessionStore.ensureInitialized({ persist: true })
         sessionId.value = sessionStore.sessionId as string | null
+        await tryTrustedHeaderLogin()
       }
     } catch (err: any) {
       configError.value = err?.message || 'Unable to load authentication configuration'
@@ -180,6 +184,47 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * Sign in with the identity the SSO gateway forwards in request headers.
+   * Only meaningful when the backend reports `header_enabled`; the gateway
+   * has already authenticated the browser, so no form is shown.
+   */
+  async function loginWithTrustedHeader() {
+    if (!headerEnabled.value) {
+      throw new Error('Trusted header authentication is not enabled')
+    }
+
+    loading.value = true
+    error.value = null
+
+    try {
+      await sessionStore.ensureInitialized({ persist: false })
+      const activeSessionId = sessionStore.sessionId as string | null
+      const response = await apiService.loginWithTrustedHeader(activeSessionId || undefined)
+      await applyLoginResponse(response)
+    } catch (err: any) {
+      error.value = err?.message || 'Single sign-on failed'
+      console.error('[Auth] Trusted header login failed:', err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /** Best-effort variant used during bootstrap; never throws. */
+  async function tryTrustedHeaderLogin(): Promise<boolean> {
+    if (!headerEnabled.value) {
+      return false
+    }
+    try {
+      await loginWithTrustedHeader()
+      return true
+    } catch (err) {
+      console.warn('[Auth] Automatic single sign-on did not complete.', err)
+      return false
+    }
+  }
+
   async function refreshTokens() {
     if (!refreshToken.value) {
       throw new Error('Refresh token unavailable')
@@ -206,6 +251,12 @@ export const useAuthStore = defineStore('auth', () => {
       await sessionStore.ensureInitialized({ persist: true })
       sessionId.value = sessionStore.sessionId as string | null
     }
+
+    // Behind an SSO gateway the next request would sign the user straight
+    // back in, so hand the browser to the gateway's own sign-out URL.
+    if (headerLogoutUrl.value && process.client) {
+      window.location.assign(headerLogoutUrl.value)
+    }
   }
 
   async function handleOAuthLogin(response: LoginResponseDTO) {
@@ -231,12 +282,15 @@ export const useAuthStore = defineStore('auth', () => {
     // computed
     authEnabled,
     oauthProviders,
+    headerEnabled,
+    headerLogoutUrl,
     isAuthenticated,
     needsLogin,
 
     // actions
     bootstrap,
     loginWithBasic,
+    loginWithTrustedHeader,
     refreshTokens,
     logout,
     handleOAuthLogin,

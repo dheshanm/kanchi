@@ -166,6 +166,48 @@ class Config:
         )
     )
 
+    # Trusted-header authentication: a reverse proxy (SSO gateway) has already
+    # authenticated the browser and forwards the identity in request headers,
+    # plus a shared secret proving the request came through that proxy.
+    # default_factory so the values are read when Config() is built, not at
+    # import time; see security/trusted_header.py.
+    auth_trusted_header_enabled: bool = field(
+        default_factory=lambda: _as_bool(os.getenv('AUTH_TRUSTED_HEADER_ENABLED', 'false'))
+    )
+    auth_trusted_header_secret: Optional[str] = field(
+        default_factory=lambda: os.getenv('AUTH_TRUSTED_HEADER_SECRET') or None
+    )
+    auth_trusted_header_secret_header: str = field(
+        default_factory=lambda: os.getenv('AUTH_TRUSTED_HEADER_SECRET_HEADER', 'X-Neuroflow-Proxy-Secret')
+    )
+    auth_trusted_header_username: str = field(
+        default_factory=lambda: os.getenv('AUTH_TRUSTED_HEADER_USERNAME', 'X-authentik-username')
+    )
+    auth_trusted_header_email: str = field(
+        default_factory=lambda: os.getenv('AUTH_TRUSTED_HEADER_EMAIL', 'X-authentik-email')
+    )
+    auth_trusted_header_name: str = field(
+        default_factory=lambda: os.getenv('AUTH_TRUSTED_HEADER_NAME', 'X-authentik-name')
+    )
+    # Domain for the synthetic email used when the proxy forwards no email.
+    auth_trusted_header_email_domain: str = field(
+        default_factory=lambda: os.getenv('AUTH_TRUSTED_HEADER_EMAIL_DOMAIN', 'sso.local')
+    )
+    # Where the UI sends the browser after signing out, so the proxy's own
+    # session ends too (otherwise the next request signs the user back in).
+    auth_trusted_header_logout_url: Optional[str] = field(
+        default_factory=lambda: os.getenv('AUTH_TRUSTED_HEADER_LOGOUT_URL') or None
+    )
+
+    @property
+    def trusted_header_ready(self) -> bool:
+        """True when trusted-header logins can actually be honoured."""
+        return bool(
+            self.auth_enabled
+            and self.auth_trusted_header_enabled
+            and self.auth_trusted_header_secret
+        )
+
     @classmethod
     def from_env(cls) -> 'Config':
         """Create config from environment variables."""
