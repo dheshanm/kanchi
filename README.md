@@ -10,6 +10,71 @@ Kanchi is a real-time Celery task monitoring (and management) system with an enj
 - Daily task statistics and history
 - Worker health monitoring
 - Auto-migrations with Alembic
+- **Apache Airflow awareness** — see [Airflow support](#airflow-support)
+
+## Airflow support
+
+Airflow's Celery executor submits every task instance through a single Celery
+task named `execute_workload`. A generic Celery monitor therefore shows one
+repeated name for the whole deployment, with the only distinguishing
+information buried in a JSON argument.
+
+Kanchi decodes that payload and treats the task instance as a first-class
+entity:
+
+- **Real task names.** Tasks are listed as `<dag_id>.<task_id>` instead of
+  `execute_workload`, so the task registry, daily statistics, failure grouping
+  and search all work per DAG task rather than lumping everything together. The
+  original Celery name is kept in `celery_task_name`.
+- **Airflow filters.** `dag:`, `dag_task:` and `run:` join the existing
+  `state:`, `worker:`, `task:`, `queue:` and `id:` filters — for example
+  `dag:is:eddy_dag` or `run:starts:manual__2026`.
+- **Deep links.** Task detail views link to the DAG, the DAG run, and the task
+  instance's logs in the Airflow UI. Set the browser-facing Airflow URL with
+  `AIRFLOW_BASE_URL` (or edit `airflow.base_url` in settings); links are hidden
+  when it is unset.
+- **Task-instance metadata.** Run ID, attempt, map index, pool slots, priority
+  weight, Airflow queue, DAG file, bundle and log path are shown alongside the
+  Celery view.
+- **Token redaction.** Each workload carries a short-lived JWT that
+  authenticates the worker against the Airflow execution API. Kanchi strips it
+  before anything is written to the database or broadcast over the WebSocket.
+- **Reruns deferred to Airflow.** Resubmitting the captured payload through
+  Celery would bypass the scheduler and use an expired token, so Kanchi blocks
+  rerun for Airflow tasks and points you at clearing the task instance in
+  Airflow instead.
+
+Non-Airflow Celery tasks keep their own names, their Airflow columns stay NULL,
+and the Airflow panel and links do not appear for them.
+
+One behaviour does apply to every task: redaction is keyed on the argument
+**name**, so a `token`, `jwt` or `access_token` value in any task's arguments is
+replaced with `<redacted by kanchi>` before storage. Kanchi cannot recover the
+original, so rerunning such a task is held for review with the redacted field
+flagged for replacement rather than silently resubmitting the placeholder.
+
+Tested against Airflow 3.3 (`type: ExecuteTask` workloads). Older
+`execute_command` payloads are recognised by shape where the identity is
+present.
+
+### Upgrading an existing Kanchi database
+
+The schema migration runs automatically on startup. Two things are worth knowing
+about rows captured by an earlier build:
+
+- **Tokens at rest.** Redaction also runs on read, so old rows never expose a
+  token through the API or UI, but the value is still stored. The tokens expire
+  within minutes, so this is hygiene rather than an active exposure. Run
+  `scripts/redact-existing-airflow-tokens.sql` to rewrite them in place.
+- **No backfill.** Old rows keep `execute_workload` as their name and have NULL
+  Airflow columns; only tasks seen after the upgrade are decoded.
+
+### Known limits
+
+- `task_name` columns are `VARCHAR(255)`. Airflow permits 250-character
+  `dag_id` and `task_id` values, so a `<dag_id>.<task_id>` pair longer than 255
+  characters would be rejected by PostgreSQL and the event dropped. Normal
+  naming is nowhere near this.
 
 ## Screenshots
 
@@ -184,6 +249,9 @@ Run Kanchi using pre-built images from Docker Hub. No repository cloning require
 
 # Pickle payloads (advanced; defaults to off)
 export ENABLE_PICKLE_SERIALIZATION=false
+
+# Airflow deep links: the browser-facing Airflow URL (optional)
+export AIRFLOW_BASE_URL=https://airflow.example.org
    ```
 
 3. **Start or update Kanchi in one command**

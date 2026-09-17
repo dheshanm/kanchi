@@ -108,6 +108,10 @@ docker run -p 8765:8765 -p 3000:3000 -e CELERY_BROKER_URL=amqp://user:pass@host:
 - **`connection_manager.py`**: WebSocket connection management
 - **`event_handler.py`**: Celery event processing and broadcasting
 - **`config.py`**: Configuration management
+- **`utils/airflow_workload.py`**: Decodes Airflow `ExecuteTask` workloads out of
+  Celery arguments and redacts the worker JWT
+- **`services/airflow_enrichment_service.py`**: Applies the decoded identity to
+  incoming events before the registry and statistics see them
 
 ### Frontend Structure (`frontend/`)
 - **Framework**: Nuxt 4 (Vue 3) with TypeScript
@@ -122,6 +126,43 @@ docker run -p 8765:8765 -p 3000:3000 -e CELERY_BROKER_URL=amqp://user:pass@host:
 - **Persistence**: SQLite database for task history and worker state
 - **Background Jobs**: Async tasks for orphan detection and cleanup
 - **Integrated Serving**: FastAPI serves both API and built frontend
+
+## Airflow support
+
+Airflow's Celery executor submits every task instance as one Celery task named
+`execute_workload`, with the DAG/run/task identity inside a JSON argument. Kanchi
+decodes it so tasks appear as `<dag_id>.<task_id>`.
+
+Where this lives:
+
+- `utils/airflow_workload.py` — payload detection, parsing (including a regex
+  fallback for payloads Celery truncated), and secret redaction. Detection is by
+  payload **shape** (`type: ExecuteTask`, or a `ti` mapping with `dag_id`), never
+  by Celery task name, because the registered name varies by Airflow version.
+- `services/airflow_enrichment_service.py` — called from `EventHandler.handle_task_event`
+  **before** `ensure_task_registered`, so the registry, daily statistics and the
+  stored event all agree on one name. Only `task-sent`/`task-received` carry
+  arguments, so identity is cached per Celery task id (bounded, process-local)
+  and re-applied to `started`/`succeeded`/`failed`, with a database lookup as the
+  fallback after a restart.
+- `models.py` / `database.py` — `celery_task_name` plus `airflow_dag_id`,
+  `airflow_task_id`, `airflow_run_id`, `airflow_try_number`, `airflow_map_index`
+  and an `airflow_meta` JSON column, on both `task_events` and `task_latest`.
+
+Two rules when touching this area:
+
+1. **Never persist or broadcast the workload token.** Redaction happens in the
+   `TaskEvent` args/kwargs/result validators, which every code path constructing
+   a `TaskEvent` goes through — including reads of rows written before the
+   feature existed. Do not bypass those validators.
+2. **Never resubmit an Airflow task through Celery.** The payload's JWT is
+   redacted and expires within minutes, and a direct submission bypasses the
+   scheduler. Every `send_task` call site must check `is_airflow_task()` first;
+   there are three (`api/task_routes.py`, `services/task_action_service.py`,
+   `services/actions/retry_action.py`).
+
+`AIRFLOW_BASE_URL` seeds the `airflow.base_url` setting, which the frontend uses
+to build deep links (`useAirflow.ts`, `AirflowTaskPanel.vue`).
 
 ## Database
 
@@ -190,6 +231,7 @@ Frontend logs are sent to the backend via `/api/logs/frontend` and written to th
 ```bash
 # Backend
 CELERY_BROKER_URL=amqp://guest:guest@localhost:5672//
+AIRFLOW_BASE_URL=  # browser-facing Airflow URL for deep links (optional)
 WS_HOST=localhost
 WS_PORT=8765
 DATABASE_URL=sqlite:///kanchi.db
