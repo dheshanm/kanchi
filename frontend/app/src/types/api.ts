@@ -39,7 +39,7 @@ export interface ActionConfig {
   /** Config Id */
   config_id?: string | null;
   /** Params */
-  params?: object;
+  params?: Record<string, any>;
   /**
    * Continue On Failure
    * @default true
@@ -59,7 +59,7 @@ export interface ActionConfigCreateRequest {
   /** Action Type */
   action_type: string;
   /** Config */
-  config: object;
+  config: Record<string, any>;
 }
 
 /**
@@ -76,7 +76,7 @@ export interface ActionConfigDefinition {
   /** Action Type */
   action_type: string;
   /** Config */
-  config: object;
+  config: Record<string, any>;
   /** Created At */
   created_at?: string | null;
   /** Updated At */
@@ -102,7 +102,22 @@ export interface ActionConfigUpdateRequest {
   /** Description */
   description?: string | null;
   /** Config */
-  config?: object | null;
+  config?: Record<string, any> | null;
+}
+
+/**
+ * AirflowConfig
+ * Airflow integration settings.
+ *
+ * ``base_url`` is the browser-facing Airflow URL used to build deep links from
+ * a Celery task to its DAG, run, and task instance. Empty disables the links.
+ */
+export interface AirflowConfig {
+  /**
+   * Base Url
+   * @default ""
+   */
+  base_url?: string;
 }
 
 /**
@@ -118,6 +133,13 @@ export interface AppConfigSnapshot {
   retention_schedule?: RetentionScheduleConfig;
   /** Last automatic retention cleanup run status. */
   retention_last_run?: RetentionLastRun;
+  /**
+   * Airflow integration settings.
+   *
+   * ``base_url`` is the browser-facing Airflow URL used to build deep links from
+   * a Celery task to its DAG, run, and task instance. Empty disables the links.
+   */
+  airflow?: AirflowConfig;
 }
 
 /**
@@ -267,21 +289,7 @@ export interface Condition {
  * ConditionGroup
  * Group of conditions with AND/OR logic.
  */
-export interface ConditionGroupInput {
-  /**
-   * Operator
-   * @default "AND"
-   */
-  operator?: "AND" | "OR";
-  /** Conditions */
-  conditions?: Condition[];
-}
-
-/**
- * ConditionGroup
- * Group of conditions with AND/OR logic.
- */
-export interface ConditionGroupOutput {
+export interface ConditionGroup {
   /**
    * Operator
    * @default "AND"
@@ -432,7 +440,7 @@ export interface LogEntry {
   /** Timestamp */
   timestamp?: string | null;
   /** Context */
-  context?: object | null;
+  context?: Record<string, any> | null;
 }
 
 /**
@@ -696,7 +704,7 @@ export interface TaskEvent {
   /** Args */
   args?: any[];
   /** Kwargs */
-  kwargs?: object;
+  kwargs?: Record<string, any>;
   /**
    * Retries
    * @default 0
@@ -786,6 +794,26 @@ export interface TaskEvent {
   resolved_by?: string | null;
   /** Resolved At */
   resolved_at?: string | null;
+  /** Celery Task Name */
+  celery_task_name?: string | null;
+  /** Airflow Dag Id */
+  airflow_dag_id?: string | null;
+  /** Airflow Task Id */
+  airflow_task_id?: string | null;
+  /** Airflow Run Id */
+  airflow_run_id?: string | null;
+  /** Airflow Try Number */
+  airflow_try_number?: number | null;
+  /** Airflow Map Index */
+  airflow_map_index?: number | null;
+  /** Airflow Meta */
+  airflow_meta?: Record<string, any> | null;
+  /** Submitted Rerun Args */
+  submitted_rerun_args?: any[] | null;
+  /** Submitted Rerun Kwargs */
+  submitted_rerun_kwargs?: Record<string, any> | null;
+  /** Submitted Rerun Kind */
+  submitted_rerun_kind?: string | null;
 }
 
 /**
@@ -823,7 +851,7 @@ export interface TaskProgressEvent {
   /** Message */
   message?: string | null;
   /** Meta */
-  meta?: object | null;
+  meta?: Record<string, any> | null;
   /**
    * Event Type
    * @default "kanchi-task-progress"
@@ -996,7 +1024,7 @@ export interface TriggerConfig {
   /** Type */
   type: string;
   /** Config */
-  config?: object;
+  config?: Record<string, any>;
 }
 
 /**
@@ -1026,7 +1054,7 @@ export interface UserSessionResponse {
   /** Active Environment Id */
   active_environment_id?: string | null;
   /** Preferences */
-  preferences?: object;
+  preferences?: Record<string, any>;
   /**
    * Created At
    * @format date-time
@@ -1047,7 +1075,7 @@ export interface UserSessionUpdate {
   /** Active Environment Id */
   active_environment_id?: string | null;
   /** Preferences */
-  preferences?: object | null;
+  preferences?: Record<string, any> | null;
 }
 
 /** ValidationError */
@@ -1058,6 +1086,10 @@ export interface ValidationError {
   msg: string;
   /** Error Type */
   type: string;
+  /** Input */
+  input?: any;
+  /** Context */
+  ctx?: object;
 }
 
 /**
@@ -1112,7 +1144,7 @@ export interface WorkflowCreateRequest {
   enabled?: boolean;
   /** Base trigger configuration. */
   trigger: TriggerConfig;
-  conditions?: ConditionGroupInput | null;
+  conditions?: ConditionGroup | null;
   /** Actions */
   actions: ActionConfig[];
   /**
@@ -1148,7 +1180,7 @@ export interface WorkflowDefinition {
   enabled?: boolean;
   /** Base trigger configuration. */
   trigger: TriggerConfig;
-  conditions?: ConditionGroupOutput | null;
+  conditions?: ConditionGroup | null;
   /** Actions */
   actions: ActionConfig[];
   /**
@@ -1206,7 +1238,7 @@ export interface WorkflowExecutionRecord {
   /** Trigger Type */
   trigger_type: string;
   /** Trigger Event */
-  trigger_event: object;
+  trigger_event: Record<string, any>;
   /** Status */
   status:
     | "pending"
@@ -1216,7 +1248,7 @@ export interface WorkflowExecutionRecord {
     | "rate_limited"
     | "circuit_open";
   /** Actions Executed */
-  actions_executed?: object[] | null;
+  actions_executed?: Record<string, any>[] | null;
   /** Error Message */
   error_message?: string | null;
   /** Stack Trace */
@@ -1228,7 +1260,7 @@ export interface WorkflowExecutionRecord {
   /** Duration Ms */
   duration_ms?: number | null;
   /** Workflow Snapshot */
-  workflow_snapshot?: object | null;
+  workflow_snapshot?: Record<string, any> | null;
   /** Circuit Breaker Key */
   circuit_breaker_key?: string | null;
 }
@@ -1245,7 +1277,7 @@ export interface WorkflowUpdateRequest {
   /** Enabled */
   enabled?: boolean | null;
   trigger?: TriggerConfig | null;
-  conditions?: ConditionGroupInput | null;
+  conditions?: ConditionGroup | null;
   /** Actions */
   actions?: ActionConfig[] | null;
   /** Priority */
@@ -1493,7 +1525,7 @@ export class Api<
       },
       params: RequestParams = {},
     ) =>
-      this.request<object, HTTPValidationError>({
+      this.request<Record<string, any>, HTTPValidationError>({
         path: `/api/events/recent`,
         method: "GET",
         query: query,
@@ -1968,7 +2000,7 @@ export class Api<
       },
       params: RequestParams = {},
     ) =>
-      this.request<object, HTTPValidationError>({
+      this.request<Record<string, any>, HTTPValidationError>({
         path: `/api/registry/tasks/${taskName}/trend`,
         method: "GET",
         query: query,
@@ -2390,7 +2422,7 @@ export class Api<
      */
     testWorkflowApiWorkflowsWorkflowIdTestPost: (
       workflowId: string,
-      data: object,
+      data: Record<string, any>,
       params: RequestParams = {},
     ) =>
       this.request<any, HTTPValidationError>({

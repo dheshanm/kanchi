@@ -17,11 +17,10 @@ import type {
 import { useBackendUrls } from '~/composables/useBackendUrls'
 
 export type AuthProvider = 'google' | 'github'
-export type TaskEventResponse = TaskEvent & {
-  submitted_rerun_args?: any[] | null
-  submitted_rerun_kwargs?: Record<string, any> | null
-  submitted_rerun_kind?: RerunKind | null
-}
+// The generated `TaskEvent` now carries the rerun-audit fields (and the Airflow
+// identity fields) that this type used to add by hand. Keep the name as an alias
+// so call sites stay unchanged.
+export type TaskEventResponse = TaskEvent
 
 export interface UserInfoDTO {
   id: string

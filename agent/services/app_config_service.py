@@ -1,6 +1,7 @@
 """Service for managing application configuration stored in the database."""
 
 import logging
+import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from database import AppSettingDB
 from models import (
+    AirflowConfig,
     AppSetting,
     AppSettingUpdate,
     AppConfigSnapshot,
@@ -34,6 +36,7 @@ RETENTION_SCHEDULE_WEEKDAY_KEY = "data_retention.schedule.weekday"
 RETENTION_SCHEDULE_MONTH_DAY_KEY = "data_retention.schedule.month_day"
 RETENTION_SCHEDULE_TIMEZONE_KEY = "data_retention.schedule.timezone"
 RETENTION_LAST_RUN_KEY = "data_retention.last_run"
+AIRFLOW_BASE_URL_KEY = "airflow.base_url"
 
 DEFAULT_SETTING_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     TASK_ISSUE_LOOKBACK_KEY: {
@@ -164,6 +167,19 @@ DEFAULT_SETTING_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "label": "Last retention cleanup run",
         "description": "Last automatic cleanup status and result.",
         "category": "data_retention",
+    },
+    AIRFLOW_BASE_URL_KEY: {
+        # Seeded from the environment so a Docker deployment works without
+        # anyone opening the settings page, then editable from the UI.
+        "default": os.getenv("AIRFLOW_BASE_URL", ""),
+        "value_type": "string",
+        "label": "Airflow base URL",
+        "description": (
+            "Browser-facing Airflow URL, for example https://airflow.example.org. "
+            "Used to link Celery tasks to their DAG, run, and task instance. "
+            "Leave empty to disable the links."
+        ),
+        "category": "airflow",
     },
 }
 
@@ -473,6 +489,15 @@ class AppConfigService:
             ),
         )
 
+    def get_airflow_config(self) -> AirflowConfig:
+        """Return Airflow integration settings with the trailing slash removed."""
+        value = self.get_setting_value(
+            AIRFLOW_BASE_URL_KEY,
+            DEFAULT_SETTING_DEFINITIONS[AIRFLOW_BASE_URL_KEY]["default"],
+        )
+        base_url = str(value or "").strip().rstrip("/")
+        return AirflowConfig(base_url=base_url)
+
     def get_config_snapshot(self) -> AppConfigSnapshot:
         """Return grouped configuration for clients."""
         self.ensure_defaults()
@@ -482,4 +507,5 @@ class AppConfigService:
             data_retention=self.get_data_retention_config(),
             retention_schedule=self.get_retention_schedule_config(),
             retention_last_run=self.get_retention_last_run(),
+            airflow=self.get_airflow_config(),
         )

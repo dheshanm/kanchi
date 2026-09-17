@@ -771,7 +771,14 @@ class TaskService:
             ),
             is_retry=task_event.is_retry,
             has_retries=task_event.has_retries,
-            retry_count=task_event.retry_count
+            retry_count=task_event.retry_count,
+            celery_task_name=task_event.celery_task_name,
+            airflow_dag_id=task_event.airflow_dag_id,
+            airflow_task_id=task_event.airflow_task_id,
+            airflow_run_id=task_event.airflow_run_id,
+            airflow_try_number=task_event.airflow_try_number,
+            airflow_map_index=task_event.airflow_map_index,
+            airflow_meta=task_event.airflow_meta
         )
 
     def _upsert_task_latest(self, event_db: TaskEventDB):
@@ -810,6 +817,13 @@ class TaskService:
             "resolved": getattr(event_db, "resolved", False),
             "resolved_at": _ensure_utc(getattr(event_db, "resolved_at", None)),
             "resolved_by": getattr(event_db, "resolved_by", None),
+            "celery_task_name": event_db.celery_task_name,
+            "airflow_dag_id": event_db.airflow_dag_id,
+            "airflow_task_id": event_db.airflow_task_id,
+            "airflow_run_id": event_db.airflow_run_id,
+            "airflow_try_number": event_db.airflow_try_number,
+            "airflow_map_index": event_db.airflow_map_index,
+            "airflow_meta": event_db.airflow_meta,
         }
 
         if self._args_are_empty(data["args"]) or self._kwargs_are_empty(data["kwargs"]):
@@ -1022,6 +1036,14 @@ class TaskService:
         task_event.resolved = getattr(event_db, "resolved", False) or False
         task_event.resolved_at = getattr(event_db, "resolved_at", None)
         task_event.resolved_by = getattr(event_db, "resolved_by", None)
+
+        task_event.celery_task_name = getattr(event_db, "celery_task_name", None)
+        task_event.airflow_dag_id = getattr(event_db, "airflow_dag_id", None)
+        task_event.airflow_task_id = getattr(event_db, "airflow_task_id", None)
+        task_event.airflow_run_id = getattr(event_db, "airflow_run_id", None)
+        task_event.airflow_try_number = getattr(event_db, "airflow_try_number", None)
+        task_event.airflow_map_index = getattr(event_db, "airflow_map_index", None)
+        task_event.airflow_meta = getattr(event_db, "airflow_meta", None)
 
         return task_event
 
@@ -1498,7 +1520,10 @@ class TaskService:
                     getattr(model, 'hostname').ilike(search_pattern),
                     getattr(model, 'event_type').ilike(search_pattern),
                     func.cast(getattr(model, 'args'), String).ilike(search_pattern),
-                    func.cast(getattr(model, 'kwargs'), String).ilike(search_pattern)
+                    func.cast(getattr(model, 'kwargs'), String).ilike(search_pattern),
+                    getattr(model, 'airflow_dag_id').ilike(search_pattern),
+                    getattr(model, 'airflow_task_id').ilike(search_pattern),
+                    getattr(model, 'airflow_run_id').ilike(search_pattern)
                 )
             )
 
@@ -1520,6 +1545,12 @@ class TaskService:
             return GenericFilter.apply(query, getattr(model, 'routing_key'), operator, values)
         elif field == 'id':
             return GenericFilter.apply(query, getattr(model, 'task_id'), operator, values)
+        elif field == 'dag':
+            return GenericFilter.apply(query, getattr(model, 'airflow_dag_id'), operator, values)
+        elif field == 'dag_task':
+            return GenericFilter.apply(query, getattr(model, 'airflow_task_id'), operator, values)
+        elif field == 'run':
+            return GenericFilter.apply(query, getattr(model, 'airflow_run_id'), operator, values)
 
         return query
 

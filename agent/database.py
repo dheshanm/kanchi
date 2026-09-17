@@ -81,7 +81,18 @@ class TaskEventDB(Base):
     
     is_orphan = Column(Boolean, default=False, index=True)
     orphaned_at = Column(DateTime(timezone=True))
-    
+
+    # Airflow: every task instance arrives as the same Celery task
+    # (`execute_workload`), so identity is decoded from the payload and stored
+    # here. NULL for non-Airflow tasks.
+    celery_task_name = Column(String(255))
+    airflow_dag_id = Column(String(255), index=True)
+    airflow_task_id = Column(String(255), index=True)
+    airflow_run_id = Column(String(255), index=True)
+    airflow_try_number = Column(Integer)
+    airflow_map_index = Column(Integer)
+    airflow_meta = Column(JSON)
+
     __table_args__ = (
         Index('idx_task_timestamp', 'task_id', 'timestamp'),
         Index('idx_event_type_timestamp', 'event_type', 'timestamp'),
@@ -93,6 +104,8 @@ class TaskEventDB(Base):
         Index('idx_retry_tracking', 'task_id', 'is_retry', 'retry_of'),
         Index('idx_active_tasks', 'event_type', 'timestamp'),
         Index('idx_routing_key_timestamp', 'routing_key', 'timestamp'),
+        Index('idx_airflow_dag_timestamp', 'airflow_dag_id', 'timestamp'),
+        Index('idx_airflow_run', 'airflow_run_id'),
     )
     
     def to_dict(self) -> Dict[str, Any]:
@@ -125,6 +138,13 @@ class TaskEventDB(Base):
             'retry_count': self.retry_count,
             'is_orphan': self.is_orphan,
             'orphaned_at': ensure_utc_isoformat(self.orphaned_at),
+            'celery_task_name': self.celery_task_name,
+            'airflow_dag_id': self.airflow_dag_id,
+            'airflow_task_id': self.airflow_task_id,
+            'airflow_run_id': self.airflow_run_id,
+            'airflow_try_number': self.airflow_try_number,
+            'airflow_map_index': self.airflow_map_index,
+            'airflow_meta': self.airflow_meta,
         }
 
 
@@ -255,11 +275,24 @@ class TaskLatestDB(Base):
     resolved_at = Column(DateTime(timezone=True))
     resolved_by = Column(String(255))
 
+    # Airflow: every task instance arrives as the same Celery task
+    # (`execute_workload`), so identity is decoded from the payload and stored
+    # here. NULL for non-Airflow tasks.
+    celery_task_name = Column(String(255))
+    airflow_dag_id = Column(String(255), index=True)
+    airflow_task_id = Column(String(255), index=True)
+    airflow_run_id = Column(String(255), index=True)
+    airflow_try_number = Column(Integer)
+    airflow_map_index = Column(Integer)
+    airflow_meta = Column(JSON)
+
     __table_args__ = (
         Index('idx_task_latest_timestamp', 'timestamp', 'task_id'),
         Index('idx_task_latest_hostname_ts', 'hostname', 'timestamp'),
         Index('idx_task_latest_routing_ts', 'routing_key', 'timestamp'),
         Index('idx_task_latest_event_type_ts', 'event_type', 'timestamp'),
+        Index('idx_task_latest_airflow_dag_ts', 'airflow_dag_id', 'timestamp'),
+        Index('idx_task_latest_airflow_run', 'airflow_run_id'),
     )
 
 class TaskResolutionDB(Base):

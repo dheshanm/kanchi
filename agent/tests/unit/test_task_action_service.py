@@ -6,6 +6,8 @@ from unittest.mock import Mock
 from database import (
     TaskActionDB,
     TaskActionItemDB,
+    TaskEventDB,
+    TaskLatestDB,
     TaskRerunRelationshipDB,
     TaskResolutionDB,
 )
@@ -102,6 +104,54 @@ class TestTaskActionService(DatabaseTestCase):
         self.assertEqual(result.items[0].review_state, RerunReviewState.REPAIRABLE)
         self.assertFalse(result.items[0].ready)
         self.assertEqual(result.items[0].required_replacements[0].path, "$.args[0]")
+
+    def test_preflight_marks_redacted_secret_repairable(self):
+        # Kanchi strips credentials from every stored payload, so a verbatim
+        # replay would resubmit the placeholder instead of the real value.
+        self.create_task_event_db(
+            task_id="task-1",
+            task_name="tasks.example",
+            event_type="task-failed",
+            timestamp=self.base_time,
+            args=[],
+            kwargs={"token": "<redacted by kanchi>"},
+        )
+
+        result = self.service.preflight_rerun(["task-1"])
+
+        self.assertEqual(result.repairable_count, 1)
+        self.assertEqual(result.items[0].review_state, RerunReviewState.REPAIRABLE)
+        self.assertFalse(result.items[0].ready)
+        issue = result.items[0].required_replacements[0]
+        self.assertEqual(issue.reason_code, "redacted_secret")
+        self.assertEqual(issue.path, "$.kwargs.token")
+
+    def test_preflight_blocks_airflow_workload(self):
+        self.create_task_event_db(
+            task_id="task-1",
+            task_name="my_dag.my_task",
+            event_type="task-failed",
+            timestamp=self.base_time,
+            args=[],
+            kwargs={},
+        )
+        for model in (TaskEventDB, TaskLatestDB):
+            self.session.query(model).update({
+                "airflow_dag_id": "my_dag",
+                "airflow_task_id": "my_task",
+                "celery_task_name": "execute_workload",
+            })
+        self.session.commit()
+
+        result = self.service.preflight_rerun(["task-1"])
+
+        item = result.items[0]
+        self.assertFalse(item.ready)
+        self.assertEqual(item.review_state, RerunReviewState.BLOCKED)
+        self.assertEqual(item.reason_code, "airflow_workload")
+        # A resubmission would have to target the Celery name, not the display one.
+        self.assertEqual(item.target.task_name, "execute_workload")
+        self.send_task.assert_not_called()
 
     def test_submit_rerun_review_sends_edited_inputs_and_records_audit(self):
         self.create_task_event_db(

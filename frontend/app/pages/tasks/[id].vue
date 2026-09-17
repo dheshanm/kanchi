@@ -314,6 +314,9 @@
           <!-- Data Tab -->
           <TabsContent value="data">
             <div class="space-y-6">
+              <!-- Airflow task instance (renders only for Airflow workloads) -->
+              <AirflowTaskPanel :task="task" />
+
               <div
                 v-if="task.submitted_rerun_args || task.submitted_rerun_kwargs"
                 class="border border-primary-border rounded-md p-5 bg-primary-bg/10"
@@ -459,6 +462,7 @@ import PayloadTruncationNotice from '~/components/PayloadTruncationNotice.vue'
 import RerunReviewDrawer from '~/components/tasks/RerunReviewDrawer.vue'
 import TaskActionActivityDrawer from '~/components/tasks/TaskActionActivityDrawer.vue'
 import TaskProgressSteps from '~/components/tasks/TaskProgressSteps.vue'
+import AirflowTaskPanel from '~/components/AirflowTaskPanel.vue'
 import type { RerunPreflightResponseDTO, TaskEventResponse } from '~/services/apiClient'
 import { useCopy } from '~/composables/useCopy'
 

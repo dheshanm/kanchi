@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from utils.airflow_workload import redact_secrets
 from utils.payload_sanitizer import sanitize_payload
 
 
@@ -46,6 +47,13 @@ class TaskEvent(BaseModel):
     resolved: bool = False
     resolved_by: Optional[str] = None
     resolved_at: Optional[datetime] = None
+    celery_task_name: Optional[str] = None
+    airflow_dag_id: Optional[str] = None
+    airflow_task_id: Optional[str] = None
+    airflow_run_id: Optional[str] = None
+    airflow_try_number: Optional[int] = None
+    airflow_map_index: Optional[int] = None
+    airflow_meta: Optional[Dict[str, Any]] = None
     submitted_rerun_args: Optional[List[Any]] = None
     submitted_rerun_kwargs: Optional[Dict[str, Any]] = None
     submitted_rerun_kind: Optional[str] = None
@@ -156,6 +164,24 @@ class TaskEvent(BaseModel):
     def sanitize_result(cls, v):
         sanitized, _ = sanitize_payload(v)
         return sanitized
+
+    @field_validator('args', 'kwargs', 'result', mode='after')
+    @classmethod
+    def redact_payload_secrets(cls, v):
+        """Strip credentials from every task payload.
+
+        Airflow ships a short-lived JWT inside the Celery arguments of every
+        task. Redacting here -- rather than at one call site -- covers ingestion,
+        WebSocket broadcast, and rows written before this was added, because
+        every TaskEvent is built through these validators.
+        """
+        redacted, _ = redact_secrets(v)
+        return redacted
+
+    @property
+    def is_airflow(self) -> bool:
+        """Whether this Celery task carries an Airflow task instance."""
+        return bool(self.airflow_dag_id and self.airflow_task_id)
 
 
 TaskEvent.model_rebuild()
@@ -298,6 +324,8 @@ class RerunUnavailableReason(str, Enum):
     TRUNCATED_PAYLOAD = "truncated_payload"
     UNPARSEABLE_PAYLOAD = "unparseable_payload"
     MONITOR_UNAVAILABLE = "monitor_unavailable"
+    AIRFLOW_WORKLOAD = "airflow_workload"
+    REDACTED_SECRET = "redacted_secret"
 
 
 class RerunInputIssue(BaseModel):
@@ -764,12 +792,22 @@ class RetentionLastRun(BaseModel):
     results: List[RetentionCleanupResult] = Field(default_factory=list)
 
 
+class AirflowConfig(BaseModel):
+    """Airflow integration settings.
+
+    ``base_url`` is the browser-facing Airflow URL used to build deep links from
+    a Celery task to its DAG, run, and task instance. Empty disables the links.
+    """
+    base_url: str = ""
+
+
 class AppConfigSnapshot(BaseModel):
     """Grouped configuration snapshot returned to clients."""
     task_issue_summary: TaskIssueConfig
     data_retention: DataRetentionConfig
     retention_schedule: RetentionScheduleConfig = Field(default_factory=RetentionScheduleConfig)
     retention_last_run: RetentionLastRun = Field(default_factory=RetentionLastRun)
+    airflow: AirflowConfig = Field(default_factory=AirflowConfig)
 
 
 class UserInfo(BaseModel):

@@ -44,9 +44,27 @@ from models import (
 )
 from services.task_service import TaskService
 from services.utils import EnvironmentFilter
+from utils.airflow_workload import REDACTED
 from utils.payload_sanitizer import contains_placeholder, find_placeholder_paths
 
 logger = logging.getLogger(__name__)
+
+
+def _find_redacted_paths(value: Any, current_path: str = "$") -> List[str]:
+    """Return JSON-style paths whose value Kanchi replaced with a redaction."""
+    paths: List[str] = []
+
+    if isinstance(value, str):
+        if REDACTED in value:
+            paths.append(current_path)
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            paths.extend(_find_redacted_paths(item, f"{current_path}[{index}]"))
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            paths.extend(_find_redacted_paths(item, f"{current_path}.{key}"))
+
+    return paths
 
 
 class TaskActionValidationError(ValueError):
@@ -385,7 +403,7 @@ class TaskActionService:
 
             try:
                 self.monitor_instance.app.send_task(
-                    latest.task_name,
+                    preflight.target.task_name,
                     args=args,
                     kwargs=kwargs,
                     queue=queue_name,
@@ -553,6 +571,27 @@ class TaskActionService:
             item.fingerprint = self._fingerprint_preflight_item(item)
             return item
 
+        if getattr(latest, "airflow_dag_id", None):
+            # Resubmitting the captured Celery payload would bypass the Airflow
+            # scheduler, and the workload's JWT is both redacted and expired
+            # within minutes. Clearing the task instance in Airflow is the only
+            # correct way to rerun it.
+            item = RerunPreflightItem(
+                task_id=task_id,
+                task_name=latest.task_name,
+                ready=False,
+                review_state=RerunReviewState.BLOCKED,
+                reason_code=RerunUnavailableReason.AIRFLOW_WORKLOAD.value,
+                reason=(
+                    "This is an Airflow task instance. Clear it in Airflow to "
+                    "rerun it -- Kanchi cannot resubmit it through Celery."
+                ),
+                task=self._row_to_task_event(latest),
+                target=self._build_submission_target(latest),
+            )
+            item.fingerprint = self._fingerprint_preflight_item(item)
+            return item
+
         if not self.monitor_instance or not getattr(self.monitor_instance, "app", None):
             item = RerunPreflightItem(
                 task_id=task_id,
@@ -596,6 +635,21 @@ class TaskActionService:
                 ),
             ))
 
+        # Kanchi redacts credentials out of every stored payload, so replaying
+        # one verbatim would resubmit the placeholder as if it were the secret.
+        for path in _find_redacted_paths({
+            "args": baseline.args,
+            "kwargs": baseline.kwargs,
+        }):
+            required_replacements.append(RerunInputIssue(
+                path=path,
+                reason_code=RerunUnavailableReason.REDACTED_SECRET.value,
+                message=(
+                    "Kanchi redacted this credential and cannot restore it. "
+                    "Supply the value before rerunning."
+                ),
+            ))
+
         if required_replacements:
             item = RerunPreflightItem(
                 task_id=task_id,
@@ -626,7 +680,10 @@ class TaskActionService:
 
     def _build_submission_target(self, row) -> RerunSubmissionTarget:
         return RerunSubmissionTarget(
-            task_name=getattr(row, "task_name", None),
+            task_name=(
+                getattr(row, "celery_task_name", None)
+                or getattr(row, "task_name", None)
+            ),
             queue=getattr(row, "queue", None) or getattr(row, "routing_key", None) or "default",
             routing_key=getattr(row, "routing_key", None) or "default",
             exchange=getattr(row, "exchange", None) or "",

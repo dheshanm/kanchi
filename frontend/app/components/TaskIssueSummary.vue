@@ -238,6 +238,8 @@
                       </div>
                     </template>
 
+                    <!-- Airflow task instance (renders only for Airflow workloads) -->
+                    <AirflowTaskPanel :task="task" />
                   </TaskDetailsSection>
                 </TableCell>
               </TableRow>
@@ -368,6 +370,7 @@ import SearchInput from '~/components/SearchInput.vue'
 import PythonValueViewer from '~/components/PythonValueViewer.vue'
 import { IconButton, Select } from '~/components/common'
 import TaskDetailsSection from '~/components/common/TaskDetailsSection.vue'
+import AirflowTaskPanel from '~/components/AirflowTaskPanel.vue'
 import { ChevronDown, ChevronRight, Loader2, AlertTriangle, ChevronsLeft, ChevronLeft, ChevronsRight, CheckCircle2 } from 'lucide-vue-next'
 import type { TaskEventResponse } from '~/services/apiClient'
 import type { RerunPreflightResponseDTO } from '~/services/apiClient'

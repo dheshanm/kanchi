@@ -10,7 +10,7 @@ export interface ParsedFilter {
   raw: string
 }
 
-export type FilterField = 'state' | 'worker' | 'task' | 'queue' | 'id'
+export type FilterField = 'state' | 'worker' | 'task' | 'queue' | 'id' | 'dag' | 'dag_task' | 'run'
 export type FilterOperator = 'is' | 'not' | 'in' | 'not_in' | 'contains' | 'starts'
 
 export interface FilterFieldConfig {
@@ -55,6 +55,26 @@ export const useFilterParser = () => {
       value: 'id',
       label: 'Task ID',
       description: 'Filter by task UUID',
+      operators: ['is', 'not', 'contains', 'starts', 'in', 'not_in']
+    },
+    // Airflow: every task instance shares one Celery task name, so these are
+    // the fields that actually tell two runs apart.
+    {
+      value: 'dag',
+      label: 'DAG',
+      description: 'Filter by Airflow dag_id',
+      operators: ['is', 'not', 'contains', 'starts', 'in', 'not_in']
+    },
+    {
+      value: 'dag_task',
+      label: 'DAG task',
+      description: 'Filter by Airflow task_id within a DAG',
+      operators: ['is', 'not', 'contains', 'starts', 'in', 'not_in']
+    },
+    {
+      value: 'run',
+      label: 'DAG run',
+      description: 'Filter by Airflow run_id',
       operators: ['is', 'not', 'contains', 'starts', 'in', 'not_in']
     }
   ]

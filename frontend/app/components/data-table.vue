@@ -33,6 +33,7 @@ import { Checkbox } from '~/components/ui/checkbox'
 import type { ParsedFilter } from '~/composables/useFilterParser'
 import type { TimeRange } from '~/components/TimeRangeFilter.vue'
 import TaskDetailsSection from '~/components/common/TaskDetailsSection.vue'
+import AirflowTaskPanel from '~/components/AirflowTaskPanel.vue'
 import TaskProgressSteps from '~/components/tasks/TaskProgressSteps.vue'
 import TaskActionSelectionBar from '~/components/tasks/TaskActionSelectionBar.vue'
 import TaskActionActivityButton from '~/components/tasks/TaskActionActivityButton.vue'
@@ -447,6 +448,9 @@ const getProgressMessage = (snapshot: any) => snapshot?.latest?.message || ''
                         Rerun
                       </Button>
                     </template>
+
+                    <!-- Airflow task instance (renders only for Airflow workloads) -->
+                    <AirflowTaskPanel :task="row.original" />
 
                     <!-- Retry Chain Section -->
                     <div v-if="row.original.is_retry || row.original.has_retries"
