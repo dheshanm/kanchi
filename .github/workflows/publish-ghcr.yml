@@ -1,0 +1,99 @@
+# Build the Kanchi image and publish it to GitHub Container Registry as
+# ghcr.io/<owner>/<repo>. This fork does not publish to Docker Hub: consumers
+# (the neuroflow-ws compose stack) avoid Hub because anonymous pulls there hit
+# TLS timeouts and a per-NAT rate cap.
+#
+# Tags produced by docker/metadata-action:
+#   push to main            -> :main, :sha-<short>, :latest
+#   push tag vX.Y.Z         -> :X.Y.Z, :X.Y, :X, :sha-<short>
+#   any other branch        -> :<branch>, :sha-<short>   (never :latest)
+#   workflow_dispatch       -> same as the ref it was dispatched from
+#
+# Authentication uses the workflow's own GITHUB_TOKEN, so no secrets or
+# repository variables need to be configured. The first successful run
+# creates the package as *private*; flip it to public under the package's
+# settings if the image must be pullable anonymously.
+name: Publish image to GHCR
+
+on:
+  push:
+    branches: ['main']
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: publish-ghcr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # Needed by actions/attest to sign and publish the build-provenance
+      # attestation alongside the image.
+      attestations: write
+      id-token: write
+      artifact-metadata: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # `latest=auto` (the default) would also stamp :latest on every
+          # release tag, so :latest would flip between "last release" and
+          # "tip of main". Disable it and add :latest explicitly below.
+          flavor: |
+            latest=false
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push image
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          # The neuroflow head node and its Apptainer workers are x86_64.
+          # Adding linux/arm64 requires docker/setup-qemu-action and roughly
+          # triples build time for the Nuxt + Poetry stages.
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NUXT_PUBLIC_KANCHI_VERSION=${{ steps.meta.outputs.version }}
+
+      - name: Attest build provenance
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
