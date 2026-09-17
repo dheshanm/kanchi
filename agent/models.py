@@ -790,12 +790,22 @@ class RetentionLastRun(BaseModel):
     results: List[RetentionCleanupResult] = Field(default_factory=list)
 
 
+class AirflowConfig(BaseModel):
+    """Airflow integration settings.
+
+    ``base_url`` is the browser-facing Airflow URL used to build deep links from
+    a Celery task to its DAG, run, and task instance. Empty disables the links.
+    """
+    base_url: str = ""
+
+
 class AppConfigSnapshot(BaseModel):
     """Grouped configuration snapshot returned to clients."""
     task_issue_summary: TaskIssueConfig
     data_retention: DataRetentionConfig
     retention_schedule: RetentionScheduleConfig = Field(default_factory=RetentionScheduleConfig)
     retention_last_run: RetentionLastRun = Field(default_factory=RetentionLastRun)
+    airflow: AirflowConfig = Field(default_factory=AirflowConfig)
 
 
 class UserInfo(BaseModel):
