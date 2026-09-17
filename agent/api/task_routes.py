@@ -15,6 +15,11 @@ from database import ensure_utc_isoformat
 from config import Config
 from security.auth import AuthenticatedUser
 from security.dependencies import get_auth_dependency
+from utils.airflow_workload import (
+    AIRFLOW_RERUN_BLOCKED_MESSAGE,
+    celery_name_of,
+    is_airflow_task,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +241,9 @@ def create_router(app_state) -> APIRouter:
 
         original_task = task_events[-1]
 
+        if is_airflow_task(original_task):
+            raise HTTPException(status_code=409, detail=AIRFLOW_RERUN_BLOCKED_MESSAGE)
+
         orphaned_task = session.query(TaskEventDB).filter_by(
             task_id=task_id,
             is_orphan=True
@@ -252,7 +260,7 @@ def create_router(app_state) -> APIRouter:
         session.commit()
 
         result = app_state.monitor_instance.app.send_task(
-            original_task.task_name,
+            celery_name_of(original_task),
             args=args,
             kwargs=kwargs,
             queue=queue_name,

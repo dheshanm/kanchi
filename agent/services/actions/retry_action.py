@@ -9,6 +9,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from models import ActionResult, TaskEvent
 from services.task_service import TaskService
+from utils.airflow_workload import (
+    AIRFLOW_RERUN_BLOCKED_MESSAGE,
+    celery_name_of,
+    is_airflow_task,
+)
 
 from .base import ActionHandler
 
@@ -61,6 +66,15 @@ class RetryActionHandler(ActionHandler):
                 )
 
             original_task = task_events[-1]
+
+            if is_airflow_task(original_task):
+                return ActionResult(
+                    action_type="task.retry",
+                    status="failed",
+                    error_message=AIRFLOW_RERUN_BLOCKED_MESSAGE,
+                    duration_ms=int((datetime.now() - start_time).total_seconds() * 1000)
+                )
+
             args, kwargs = self._resolve_call_signature(context, task_events)
 
             max_retries = params.get("max_retries", 10)
@@ -97,7 +111,7 @@ class RetryActionHandler(ActionHandler):
             preserved_root_id = original_task.root_id if original_task.root_id else task_id
 
             self.monitor_instance.app.send_task(
-                original_task.task_name,
+                celery_name_of(original_task),
                 args=args,
                 kwargs=kwargs,
                 queue=queue_name,

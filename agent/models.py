@@ -324,6 +324,8 @@ class RerunUnavailableReason(str, Enum):
     TRUNCATED_PAYLOAD = "truncated_payload"
     UNPARSEABLE_PAYLOAD = "unparseable_payload"
     MONITOR_UNAVAILABLE = "monitor_unavailable"
+    AIRFLOW_WORKLOAD = "airflow_workload"
+    REDACTED_SECRET = "redacted_secret"
 
 
 class RerunInputIssue(BaseModel):
