@@ -47,6 +47,7 @@ const RETENTION_SCHEDULE_DEFAULTS: RetentionScheduleConfigDTO = {
   month_day: 1,
   timezone: 'UTC',
 }
+const AIRFLOW_BASE_URL_KEY = 'airflow.base_url'
 const RETENTION_LAST_RUN_DEFAULTS: RetentionLastRunDTO = {
   status: 'never',
   total_deleted: 0,
@@ -106,6 +107,28 @@ export const useConfigStore = defineStore('config', () => {
   const retentionLastRun = computed<RetentionLastRunDTO>(() => {
     return config.value?.retention_last_run ?? RETENTION_LAST_RUN_DEFAULTS
   })
+
+  /**
+   * Browser-facing Airflow URL used to deep-link Celery tasks to their DAG, run
+   * and task instance. Empty when Kanchi is not watching an Airflow deployment.
+   */
+  const airflowBaseUrl = computed<string>(() => {
+    const fromSnapshot = config.value?.airflow?.base_url
+    if (fromSnapshot) {
+      return fromSnapshot
+    }
+    const stored = settingsMap.value[AIRFLOW_BASE_URL_KEY]?.value
+    return typeof stored === 'string' ? stored : ''
+  })
+
+  async function updateAirflowBaseUrl(baseUrl: string) {
+    await upsertSetting(AIRFLOW_BASE_URL_KEY, {
+      value: baseUrl.trim().replace(/\/+$/, ''),
+      value_type: 'string',
+      category: 'airflow'
+    })
+    await fetchConfig()
+  }
 
   async function fetchConfig() {
     try {
@@ -303,6 +326,7 @@ export const useConfigStore = defineStore('config', () => {
     dataRetention,
     retentionSchedule,
     retentionLastRun,
+    airflowBaseUrl,
     settingsMap,
     fetchConfig,
     upsertSetting,
@@ -311,5 +335,6 @@ export const useConfigStore = defineStore('config', () => {
     updateDataRetention,
     updateRetentionSchedule,
     runRetentionCleanup,
+    updateAirflowBaseUrl,
   }
 })

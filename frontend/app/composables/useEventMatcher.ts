@@ -51,6 +51,12 @@ export const useEventMatcher = () => {
         return matchesQueueFilter(event, filter.operator, filter.values)
       case 'id':
         return matchesIdFilter(event, filter.operator, filter.values)
+      case 'dag':
+        return matchesStringField(event.airflow_dag_id, filter.operator, filter.values)
+      case 'dag_task':
+        return matchesStringField(event.airflow_task_id, filter.operator, filter.values)
+      case 'run':
+        return matchesStringField(event.airflow_run_id, filter.operator, filter.values)
       default:
         // Unknown filters don't exclude events
         return true
@@ -90,7 +96,7 @@ export const useEventMatcher = () => {
    * Used by worker, task, queue, and id filters
    */
   function matchesStringField(
-    value: string | undefined,
+    value: string | null | undefined,
     operator: string,
     filterValues: string[]
   ): boolean {
