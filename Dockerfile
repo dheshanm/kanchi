@@ -1,4 +1,8 @@
-FROM node:20-alpine as frontend-builder
+# Base images come from the ECR Public mirror of the Docker Official Images
+# rather than Docker Hub: Hub pulls intermittently fail with TLS handshake
+# timeouts and draw on an anonymous rate limit shared by every machine behind
+# the lab NAT. Same digests, different registry.
+FROM public.ecr.aws/docker/library/node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
@@ -12,7 +16,7 @@ ENV NUXT_PUBLIC_KANCHI_VERSION=${NUXT_PUBLIC_KANCHI_VERSION}
 ENV NUXT_APP_BASE_URL=/ui/
 RUN npm run generate
 
-FROM python:3.12-slim
+FROM public.ecr.aws/docker/library/python:3.12-slim
 
 WORKDIR /app
 
