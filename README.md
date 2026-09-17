@@ -239,6 +239,11 @@ Run Kanchi using pre-built images from Docker Hub. No repository cloning require
    # Allowed email addresses for OAuth logins (wildcards supported)
    export ALLOWED_EMAIL_PATTERNS='*@example.com,*@example.org'
 
+   # Trusted-header SSO behind an authenticating reverse proxy (see below)
+   export AUTH_TRUSTED_HEADER_ENABLED=true
+   export AUTH_TRUSTED_HEADER_SECRET=$(openssl rand -hex 32)
+   export AUTH_TRUSTED_HEADER_LOGOUT_URL=/outpost.goauthentik.io/sign_out
+
    # CORS and host controls
    export ALLOWED_ORIGINS=https://your-kanchi-host,http://localhost:8765,http://localhost:3000
    export ALLOWED_HOSTS=your-kanchi-host,localhost,127.0.0.1
@@ -314,7 +319,36 @@ Authentication is opt-in. When `AUTH_ENABLED=false` (the default) anyone who can
 3. Add allowed email patterns via `ALLOWED_EMAIL_PATTERNS` to restrict who can sign in.
 4. The frontend exposes convenient buttons for OAuth providers once enabled.
 
-Every login issues short-lived access tokens plus refresh tokens. You can adjust lifetimes through `ACCESS_TOKEN_LIFETIME_MINUTES` and `REFRESH_TOKEN_LIFETIME_HOURS` if required.
+#### Trusted proxy headers (SSO gateway)
+
+When Kanchi sits behind a reverse proxy that already authenticates users (for
+example nginx with Authentik forward auth, oauth2-proxy or Authelia), Kanchi can
+accept the identity the proxy forwards instead of showing its own login page.
+
+1. Set `AUTH_ENABLED=true` and `AUTH_TRUSTED_HEADER_ENABLED=true`.
+2. Set `AUTH_TRUSTED_HEADER_SECRET` to a long random value and configure the
+   proxy to add it as the `X-Neuroflow-Proxy-Secret` header on every request
+   it forwards **after** authenticating the user. Kanchi ignores the identity
+   headers unless this secret matches, so a client that can reach Kanchi
+   without going through the proxy cannot impersonate anyone. Trusted-header
+   mode stays off while the secret is empty.
+3. The proxy forwards the identity in `X-authentik-username` (required),
+   `X-authentik-email` and `X-authentik-name`. Other header names can be set
+   with `AUTH_TRUSTED_HEADER_USERNAME`, `AUTH_TRUSTED_HEADER_EMAIL` and
+   `AUTH_TRUSTED_HEADER_NAME`; `AUTH_TRUSTED_HEADER_SECRET_HEADER` renames the
+   secret header. When no email is forwarded, Kanchi uses
+   `<username>@<AUTH_TRUSTED_HEADER_EMAIL_DOMAIN>` (default `sso.local`).
+4. Set `AUTH_TRUSTED_HEADER_LOGOUT_URL` to the proxy's sign-out URL (for
+   Authentik's embedded outpost: `/outpost.goauthentik.io/sign_out`). The UI
+   sends the browser there after signing out; without it the very next request
+   would sign the user straight back in.
+
+The frontend calls `POST /api/auth/header/login` on load, receives Kanchi's
+usual access and refresh tokens, and everything else (WebSocket auth, token
+refresh, `ALLOWED_EMAIL_PATTERNS`) works unchanged. Accounts are keyed by email,
+so a person who previously signed in with basic auth or OAuth keeps the same
+account. Basic auth and OAuth can stay enabled alongside this mode as a
+fallback for direct (non-proxied) access.
 
 ## Local Development
 

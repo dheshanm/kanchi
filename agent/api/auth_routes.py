@@ -15,12 +15,14 @@ from models import (
     AuthConfigResponse,
     AuthTokens,
     BasicLoginRequest,
+    HeaderLoginRequest,
     LoginResponse,
     LogoutRequest,
     RefreshRequest,
     UserInfo,
 )
 from security.auth import AuthError, AuthenticatedUser
+from security.trusted_header import extract_trusted_identity
 from services import AuthService
 
 logger = logging.getLogger(__name__)
@@ -73,12 +75,42 @@ def create_router(app_state) -> APIRouter:
             and config.basic_auth_username
             and (config.basic_auth_password or config.basic_auth_password_hash)
         )
+        header_enabled = config.trusted_header_ready
         return AuthConfigResponse(
             auth_enabled=config.auth_enabled,
             basic_enabled=basic_enabled,
             oauth_providers=providers,
             allowed_email_patterns=config.allowed_email_patterns or [],
+            header_enabled=header_enabled,
+            header_logout_url=config.auth_trusted_header_logout_url if header_enabled else None,
         )
+
+    @router.post("/header/login", response_model=LoginResponse)
+    def header_login(
+        request: Request,
+        payload: Optional[HeaderLoginRequest] = None,
+        auth_service: AuthService = Depends(require_auth_service),
+        config: Config = Depends(get_config),
+    ):
+        """Sign in with the identity the SSO gateway forwarded in headers.
+
+        Only requests that carry the gateway's shared secret are honoured;
+        anything else is answered 401 exactly like a bad password.
+        """
+        if not config.trusted_header_ready:
+            raise HTTPException(status_code=404, detail="Trusted header authentication disabled")
+
+        try:
+            identity = extract_trusted_identity(request.headers, config)
+            result = auth_service.trusted_header_login(
+                identity,
+                session_id=payload.session_id if payload else None,
+            )
+        except AuthError as exc:
+            logger.warning("Trusted header login refused from %s: %s", request.client.host if request.client else "?", exc)
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+        return _login_result_to_response(result)
 
     @router.post("/basic/login", response_model=LoginResponse)
     def basic_login(

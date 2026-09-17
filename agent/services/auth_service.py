@@ -16,6 +16,7 @@ from security.auth import (
     AuthError,
     AuthenticatedUser,
 )
+from security.trusted_header import TRUSTED_HEADER_PROVIDER, TrustedIdentity
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,47 @@ class AuthService:
             avatar_url=None,
         )
         return self._create_session_for_user(user, provider="basic", scopes=(), session_id=session_id)
+
+    def trusted_header_login(
+        self,
+        identity: TrustedIdentity,
+        session_id: Optional[str] = None,
+    ) -> LoginResult:
+        """Issue a session for an identity the SSO gateway vouched for.
+
+        The caller (``security.trusted_header.extract_trusted_identity``) has
+        already verified the gateway secret, so this method only applies the
+        email allow-list and maps the identity onto a Kanchi account.
+        """
+        email = identity.email.lower()
+        if not self.auth_manager.is_email_allowed(email):
+            raise AuthError("Email not allowed")
+
+        # ``users.email`` is unique across providers. Someone who previously
+        # signed in with basic auth or OAuth under the same address keeps that
+        # account (and its sessions) instead of tripping the constraint.
+        user = self.session.query(UserDB).filter(UserDB.email == email).first()
+        if user is not None:
+            now = datetime.now(timezone.utc)
+            user.name = identity.name or user.name
+            user.updated_at = now
+            self.session.commit()
+            self.session.refresh(user)
+        else:
+            user = self._get_or_create_user(
+                provider=TRUSTED_HEADER_PROVIDER,
+                email=email,
+                name=identity.name or identity.username,
+                provider_account_id=identity.username,
+                avatar_url=None,
+            )
+
+        return self._create_session_for_user(
+            user,
+            provider=TRUSTED_HEADER_PROVIDER,
+            scopes=(),
+            session_id=session_id,
+        )
 
     async def build_oauth_authorization_url(
         self,

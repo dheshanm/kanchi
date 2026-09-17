@@ -138,6 +138,10 @@ const avatarFallback = computed(() => {
 
 async function handleLogout() {
   await authStore.logout()
-  await navigateTo('/login')
+  // In trusted-header mode the store has already sent the browser to the
+  // gateway's sign-out URL; navigating to /login would only sign back in.
+  if (!authStore.headerLogoutUrl) {
+    await navigateTo('/login')
+  }
 }
 </script>
